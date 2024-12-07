@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 07-12-2024 a las 23:34:48
+-- Tiempo de generación: 08-12-2024 a las 00:28:25
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.0.30
 
@@ -55,6 +55,13 @@ CREATE TABLE `asignacionenvio` (
   `cod_producto` int(11) DEFAULT NULL,
   `fecha_hora_asignada` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `asignacionenvio`
+--
+
+INSERT INTO `asignacionenvio` (`cod_asignacion`, `cod_admin`, `cod_domi`, `cod_producto`, `fecha_hora_asignada`) VALUES
+(2, 2, 1, 1, '2024-12-08 18:21:12');
 
 -- --------------------------------------------------------
 
@@ -137,6 +144,15 @@ CREATE TABLE `entradas` (
   `fecha_hora_entrada` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Volcado de datos para la tabla `entradas`
+--
+
+INSERT INTO `entradas` (`cod_entrada`, `cod_proveedor`, `cod_insumo`, `cnt_entrada`, `fecha_caducidad`, `fecha_hora_entrada`) VALUES
+(5, 2, 10, 4, '2024-12-31', '2024-12-07 23:02:40'),
+(6, 2, 9, 4, '2024-12-31', '2024-12-07 23:04:29'),
+(9, 2, 9, 4, '2025-01-11', '2024-12-07 23:07:34');
+
 -- --------------------------------------------------------
 
 --
@@ -150,8 +166,15 @@ CREATE TABLE `envio` (
   `fecha_hora_entrega` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `tarifa_envio` double NOT NULL,
   `segunda fecha  de entrega` timestamp NULL DEFAULT current_timestamp(),
-  `estado_envio` enum('ENTREGADO','EN CAMINO','PENDIENTE','NO RECIBIDO') DEFAULT NULL
+  `estado_envio` enum('ENTREGADO','EN CAMINO','PENDIENTE','NO RECIBIDO') DEFAULT 'EN CAMINO'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `envio`
+--
+
+INSERT INTO `envio` (`cod_envio`, `cod_asignacion`, `fecha_hora_asignada`, `fecha_hora_entrega`, `tarifa_envio`, `segunda fecha  de entrega`, `estado_envio`) VALUES
+(1, 2, '2024-12-08 18:22:11', '2024-12-08 23:22:16', 3000, NULL, 'ENTREGADO');
 
 -- --------------------------------------------------------
 
@@ -172,7 +195,7 @@ CREATE TABLE `insumo` (
 
 INSERT INTO `insumo` (`cod_insumo`, `cod_categoria`, `nomb_insumo`, `cnt_insumo`) VALUES
 (8, 1, 'Leche Entera', 5),
-(9, 1, 'Leche Descremada', 4),
+(9, 1, 'Leche Descremada', 8),
 (10, 3, 'Harina de Oro', 3),
 (11, 4, 'M&M\'s', 4);
 
@@ -212,12 +235,18 @@ CREATE TABLE `produccion` (
   `cod_produccion` int(11) NOT NULL,
   `cod_admin` int(11) NOT NULL,
   `cod_orden` int(11) NOT NULL,
-  `cod_salida` int(11) NOT NULL,
   `estado_produccion` enum('PENDIENTE','EN PROCESO','FINALIZADO') NOT NULL DEFAULT 'PENDIENTE',
   `descip_produccion` varchar(100) NOT NULL,
   `fecha_hora` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `cnt_produccion` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `produccion`
+--
+
+INSERT INTO `produccion` (`cod_produccion`, `cod_admin`, `cod_orden`, `estado_produccion`, `descip_produccion`, `fecha_hora`, `cnt_produccion`) VALUES
+(1, 2, 1, 'FINALIZADO', 'Talla S sabor vainilla ', '2024-12-07 23:15:01', 1);
 
 -- --------------------------------------------------------
 
@@ -227,10 +256,17 @@ CREATE TABLE `produccion` (
 
 CREATE TABLE `producto` (
   `cod_producto` int(11) NOT NULL,
-  `nomb_pro` varchar(50) NOT NULL,
-  `descr_pro` varchar(50) NOT NULL,
+  `cod_produccion` int(11) NOT NULL,
+  `cod_cliente` int(11) NOT NULL,
   `cnt_pro` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Volcado de datos para la tabla `producto`
+--
+
+INSERT INTO `producto` (`cod_producto`, `cod_produccion`, `cod_cliente`, `cnt_pro`) VALUES
+(1, 1, 2, 1);
 
 -- --------------------------------------------------------
 
@@ -256,24 +292,13 @@ INSERT INTO `proveedor` (`cod_proveedor`, `nom_proveedor`, `telefono_proveedor`,
 -- --------------------------------------------------------
 
 --
--- Estructura de tabla para la tabla `relacion_product_producc`
---
-
-CREATE TABLE `relacion_product_producc` (
-  `cod_relacion` int(11) NOT NULL,
-  `cod_producto` int(11) NOT NULL,
-  `cod_produccion` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
 -- Estructura de tabla para la tabla `salida`
 --
 
 CREATE TABLE `salida` (
   `cod_salida` int(11) NOT NULL,
   `cod_insumo` int(11) NOT NULL,
+  `cod_producc` int(11) NOT NULL,
   `cnt_salida` int(11) NOT NULL,
   `fecha_hora_salida` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -406,14 +431,15 @@ ALTER TABLE `pago`
 ALTER TABLE `produccion`
   ADD PRIMARY KEY (`cod_produccion`),
   ADD KEY `cod_admin` (`cod_admin`),
-  ADD KEY `cod_venta` (`cod_orden`),
-  ADD KEY `cod_salida` (`cod_salida`);
+  ADD KEY `cod_venta` (`cod_orden`);
 
 --
 -- Indices de la tabla `producto`
 --
 ALTER TABLE `producto`
-  ADD PRIMARY KEY (`cod_producto`);
+  ADD PRIMARY KEY (`cod_producto`),
+  ADD KEY `cod_produccion` (`cod_produccion`),
+  ADD KEY `cod_cliente` (`cod_cliente`);
 
 --
 -- Indices de la tabla `proveedor`
@@ -422,19 +448,12 @@ ALTER TABLE `proveedor`
   ADD PRIMARY KEY (`cod_proveedor`);
 
 --
--- Indices de la tabla `relacion_product_producc`
---
-ALTER TABLE `relacion_product_producc`
-  ADD PRIMARY KEY (`cod_relacion`),
-  ADD KEY `cod_producto` (`cod_producto`),
-  ADD KEY `cod_produccion` (`cod_produccion`);
-
---
 -- Indices de la tabla `salida`
 --
 ALTER TABLE `salida`
   ADD PRIMARY KEY (`cod_salida`),
-  ADD KEY `cod_insumo` (`cod_insumo`);
+  ADD KEY `cod_insumo` (`cod_insumo`),
+  ADD KEY `cod_producc` (`cod_producc`);
 
 --
 -- Indices de la tabla `usuario`
@@ -463,7 +482,7 @@ ALTER TABLE `administrador`
 -- AUTO_INCREMENT de la tabla `asignacionenvio`
 --
 ALTER TABLE `asignacionenvio`
-  MODIFY `cod_asignacion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `cod_asignacion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de la tabla `categoriainsumo`
@@ -487,13 +506,13 @@ ALTER TABLE `domiciliario`
 -- AUTO_INCREMENT de la tabla `entradas`
 --
 ALTER TABLE `entradas`
-  MODIFY `cod_entrada` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `cod_entrada` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT de la tabla `envio`
 --
 ALTER TABLE `envio`
-  MODIFY `cod_envio` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `cod_envio` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `insumo`
@@ -511,25 +530,19 @@ ALTER TABLE `pago`
 -- AUTO_INCREMENT de la tabla `produccion`
 --
 ALTER TABLE `produccion`
-  MODIFY `cod_produccion` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `cod_produccion` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `producto`
 --
 ALTER TABLE `producto`
-  MODIFY `cod_producto` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `cod_producto` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `proveedor`
 --
 ALTER TABLE `proveedor`
   MODIFY `cod_proveedor` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
-
---
--- AUTO_INCREMENT de la tabla `relacion_product_producc`
---
-ALTER TABLE `relacion_product_producc`
-  MODIFY `cod_relacion` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT de la tabla `salida`
@@ -547,7 +560,7 @@ ALTER TABLE `usuario`
 -- AUTO_INCREMENT de la tabla `venta`
 --
 ALTER TABLE `venta`
-  MODIFY `cod_venta` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `cod_venta` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- Restricciones para tablas volcadas
@@ -610,21 +623,21 @@ ALTER TABLE `pago`
 --
 ALTER TABLE `produccion`
   ADD CONSTRAINT `produccion_ibfk_1` FOREIGN KEY (`cod_admin`) REFERENCES `administrador` (`cod_admin`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `produccion_ibfk_2` FOREIGN KEY (`cod_orden`) REFERENCES `orden` (`cod_orden`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `produccion_ibfk_3` FOREIGN KEY (`cod_salida`) REFERENCES `salida` (`cod_salida`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `produccion_ibfk_2` FOREIGN KEY (`cod_orden`) REFERENCES `orden` (`cod_orden`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Filtros para la tabla `relacion_product_producc`
+-- Filtros para la tabla `producto`
 --
-ALTER TABLE `relacion_product_producc`
-  ADD CONSTRAINT `relacion_product_producc_ibfk_1` FOREIGN KEY (`cod_producto`) REFERENCES `producto` (`cod_producto`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `relacion_product_producc_ibfk_2` FOREIGN KEY (`cod_produccion`) REFERENCES `produccion` (`cod_produccion`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `producto`
+  ADD CONSTRAINT `producto_ibfk_1` FOREIGN KEY (`cod_produccion`) REFERENCES `produccion` (`cod_produccion`),
+  ADD CONSTRAINT `producto_ibfk_2` FOREIGN KEY (`cod_cliente`) REFERENCES `cliente` (`cod_cliente`);
 
 --
 -- Filtros para la tabla `salida`
 --
 ALTER TABLE `salida`
-  ADD CONSTRAINT `salida_ibfk_1` FOREIGN KEY (`cod_insumo`) REFERENCES `insumo` (`cod_insumo`) ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD CONSTRAINT `salida_ibfk_1` FOREIGN KEY (`cod_insumo`) REFERENCES `insumo` (`cod_insumo`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `salida_ibfk_2` FOREIGN KEY (`cod_producc`) REFERENCES `produccion` (`cod_produccion`);
 
 --
 -- Filtros para la tabla `venta`
