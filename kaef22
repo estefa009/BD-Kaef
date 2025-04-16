@@ -1,0 +1,747 @@
+create database KAEF22;
+use kaef22;
+-- TABLA USUARIO (padre)
+create table usuario (
+    cod_usuario int not null auto_increment primary key,
+    nom_usua varchar(15) not null,
+    apell_usua varchar(20) not null,
+    tele_usua varchar(15) not null,
+    email_usua varchar(40) not null unique,
+    passw_usua varchar(60) not null, -- Aumentado para hash seguro
+    rol enum('ADMIN', 'CLIENTE', 'DOMI') not null
+) auto_increment = 1;
+
+-- TABLA ADMINISTRADOR
+CREATE TABLE administrador (
+    cod_admin int NOT NULL auto_increment PRIMARY KEY,
+    cod_usua int not null unique,
+    estado_admin enum("ACTIVO","INACTIVO") not null,
+    foreign key (cod_usua) references usuario(cod_usuario) ON DELETE CASCADE ON UPDATE CASCADE
+) auto_increment = 1;
+
+-- TABLA CLIENTE
+CREATE TABLE cliente (
+    cod_cliente int NOT NULL auto_increment PRIMARY KEY,
+    cod_usua int not null unique,
+    direc_cliente varchar(50) not NULL,
+    historial_compras int DEFAULT 0,
+    foreign key (cod_usua) references usuario(cod_usuario) ON DELETE CASCADE ON UPDATE CASCADE
+) auto_increment = 1;
+
+-- TABLA DOMICILIARIO
+CREATE TABLE domiciliario (
+    cod_domi int NOT NULL auto_increment PRIMARY KEY,
+    cod_usua int not null unique,
+    disponibilidad boolean DEFAULT true,
+    foreign key (cod_usua) references usuario(cod_usuario) ON DELETE CASCADE ON UPDATE CASCADE
+) auto_increment = 1;
+
+-- TABLA PROVEEDOR
+CREATE TABLE proveedor (
+    cod_proveedor int not null auto_increment PRIMARY KEY,
+    nom_proveedor varchar(50) not NULL,
+    telefono_proveedor varchar(13) not null,
+    direccion_proveedor varchar(100),
+    email_proveedor varchar(50),
+    novedad_proveedor varchar(100) DEFAULT NULL
+) auto_increment = 1;
+
+-- TABLA CATEGORIA INSUMO
+CREATE TABLE categoriainsumo (
+    cod_categoria int NOT NULL auto_increment PRIMARY KEY,
+    nom_categoria varchar(50) not NULL UNIQUE,
+    descripcion varchar(100)
+) auto_increment = 1;
+
+-- TABLA INSUMO
+CREATE TABLE insumo (
+    cod_insumo int NOT NULL auto_increment PRIMARY KEY,
+    cod_categoria int not null,
+    nomb_insumo varchar(50) not NULL,
+    cnt_insumo int(11) not NULL DEFAULT 0,
+    unidad_medida varchar(10) not NULL,
+    foreign key (cod_categoria) references categoriainsumo(cod_categoria) ON DELETE CASCADE ON UPDATE CASCADE
+) auto_increment = 1;
+
+-- TABLA ENTRADAS
+CREATE TABLE entradas (
+    cod_entrada int NOT NULL auto_increment PRIMARY KEY,
+    cod_insumo int not null,
+    cod_proveedor int not null,
+    nom_entrada varchar(50) not NULL,
+    cnt_entrada int(5) not NULL,
+    precio_entrada decimal(10,2) not NULL,
+    fecha_hora_entrada TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_caducidad date not null,
+    lote varchar(20),
+    foreign key (cod_insumo) references insumo(cod_insumo) ON DELETE CASCADE ON UPDATE CASCADE,
+    foreign key (cod_proveedor) references proveedor(cod_proveedor) ON DELETE CASCADE ON UPDATE CASCADE
+) auto_increment = 1;
+
+-- TABLA PRODUCTO
+CREATE TABLE producto (
+    cod_producto int not NULL auto_increment PRIMARY KEY,
+    nomb_pro varchar(50) not NULL UNIQUE,
+    descr_pro varchar(100) not NULL,
+    prec_pro decimal(10,2) not NULL,
+    tiempo_preparacion int, -- en minutos
+    activo boolean DEFAULT true,
+    imagen varchar(100)
+) auto_increment = 1;
+
+ALTER TABLE producto DROP COLUMN activo;
+ALTER TABLE producto
+ADD COLUMN tamano ENUM('XS', 'S', 'M', 'L') NOT NULL after nom_pro,
+ADD COLUMN capacidad INT NOT NULL COMMENT 'Cantidad de donas por bolsa' after tamano,
+MODIFY COLUMN nomb_pro VARCHAR(50) NOT NULL COMMENT 'Nombre general del producto';
+alter table producto add activo boolean DEFAULT true after prec_pro;
+alter table producto drop column imagen;
+
+-- Eliminar campos redundantes
+ALTER TABLE producto
+DROP COLUMN descr_pro,
+DROP COLUMN tiempo_preparacion;
+
+-- TABLA VENTA (simplificada)
+CREATE TABLE venta (
+    cod_venta int not null auto_increment PRIMARY KEY,
+    cod_cliente int not null,
+    fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    subtotal decimal(10,2) not NULL,
+    iva decimal(10,2) not NULL,
+    total decimal(10,2) not NULL,
+    estado enum('PENDIENTE', 'PREPARACION', 'EN_CAMINO', 'ENTREGADO', 'CANCELADO') DEFAULT 'PENDIENTE',
+    direccion_entrega varchar(100) not NULL,
+    observaciones varchar(200),
+    foreign key (cod_cliente) references cliente(cod_cliente) ON DELETE CASCADE ON UPDATE CASCADE
+) auto_increment = 1;
+
+-- TABLA DETALLE_VENTA (productos en venta)
+CREATE TABLE detalle_venta (
+    cod_detalle int not null auto_increment PRIMARY KEY,
+    cod_venta int not null,
+    cod_producto int not null,
+    cantidad int not NULL DEFAULT 1,
+    precio_unitario decimal(10,2) not NULL,
+    subtotal decimal(10,2) AS (cantidad * precio_unitario) STORED,
+    foreign key (cod_venta) references venta(cod_venta) ON DELETE CASCADE ON UPDATE CASCADE,
+    foreign key (cod_producto) references producto(cod_producto) ON DELETE CASCADE ON UPDATE CASCADE
+) auto_increment = 1;
+
+-- TABLA PAGO (simplificada)
+CREATE TABLE pago (
+    cod_pago int NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    cod_venta int not null,
+    metodo_pago enum('EFECTIVO', 'TARJETA', 'TRANSFERENCIA') not NULL,
+    monto_total decimal(10,2) not NULL,
+    fecha_hora_pago TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    estado_pago enum('PENDIENTE', 'PAGADO', 'RECHAZADO') DEFAULT 'PENDIENTE',
+    transaccion_id varchar(50),
+    foreign key (cod_venta) references venta(cod_venta) ON DELETE CASCADE ON UPDATE CASCADE
+) AUTO_INCREMENT = 1;
+
+ALTER TABLE pago
+MODIFY metodo_pago ENUM('NEQUI', 'DAVIPLATA') NOT NULL;
+
+-- TABLA PRODUCCION
+CREATE TABLE produccion (
+    cod_produccion int NOT NULL auto_increment PRIMARY KEY,
+    cod_venta int not null,
+    fecha_inicio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_fin TIMESTAMP NULL,
+    estado enum('PENDIENTE', 'EN_PROCESO', 'FINALIZADO', 'CANCELADO') DEFAULT 'PENDIENTE',
+    observaciones varchar(200),
+    foreign key (cod_venta) references venta(cod_venta) ON DELETE CASCADE ON UPDATE CASCADE
+) auto_increment = 1;
+ALTER TABLE produccion
+MODIFY estado ENUM('PENDIENTE', 'EN_PROCESO','FINALIZADO') NOT NULL DEFAULT 'PENDIENTE';
+
+-- TABLA SALIDA (insumos usados en producción)
+CREATE TABLE salida (
+    cod_salida int not null primary key auto_increment,
+    cod_produccion int not null,
+    cod_insumo int not null,
+    cantidad int not NULL,
+    fecha_hora_salida TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    foreign key (cod_produccion) references produccion(cod_produccion) ON DELETE CASCADE ON UPDATE CASCADE,
+    foreign key (cod_insumo) references insumo(cod_insumo) ON DELETE CASCADE ON UPDATE CASCADE
+) auto_increment = 1;
+
+-- TABLA ENVIO (combinada con asignación)
+CREATE TABLE envio (
+    cod_envio int NOT NULL auto_increment primary key,
+    cod_venta int not null,
+    cod_domi int,
+    fecha_asignacion TIMESTAMP NULL,
+    fecha_salida TIMESTAMP NULL,
+    fecha_entrega TIMESTAMP NULL,
+    estado enum('PENDIENTE', 'ASIGNADO', 'EN_CAMINO', 'ENTREGADO', 'CANCELADO') DEFAULT 'PENDIENTE',
+    tarifa_envio decimal(10,2) not NULL DEFAULT 0,
+    observaciones varchar(200),
+    firma_recepcion varchar(100),
+    foreign key (cod_venta) references venta(cod_venta) ON DELETE CASCADE ON UPDATE CASCADE,
+    foreign key (cod_domi) references domiciliario(cod_domi) ON DELETE SET NULL ON UPDATE CASCADE
+) auto_increment = 1;
+/*Sabor*/
+CREATE TABLE sabor_masa (
+    cod_sabor_masa INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(30) NOT NULL UNIQUE,
+    descripcion VARCHAR(100)
+);
+-- Tabla de glaseados (chocolate oscuro, blanco y de colores)
+CREATE TABLE glaseado (
+    cod_glaseado INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(30) NOT NULL,
+    tipo ENUM('Oscuro', 'Blanco', 'Colorido') NOT NULL,
+    color ENUM('Rosado', 'Morado', 'Naranja', 'Azul', 'Verde') NULL,
+    descripcion VARCHAR(100)
+);
+-- Tabla de toppings (sin costo adicional)
+CREATE TABLE topping (
+    cod_topping INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(30) NOT NULL UNIQUE,
+    descripcion VARCHAR(100)
+);
+-- Tabla de Combinaciones de Productos
+CREATE TABLE combinacion_producto (
+    cod_combinacion INT AUTO_INCREMENT PRIMARY KEY,
+    cod_venta INT NOT NULL,
+    cod_producto INT NOT NULL,
+    cod_sabor_masa_1 INT NOT NULL,
+    cod_sabor_masa_2 INT NULL,
+    cod_glaseado_1 INT NOT NULL,
+    cod_glaseado_2 INT NULL,
+    cod_topping_1 INT NULL,
+    cod_topping_2 INT NULL,
+    FOREIGN KEY (cod_venta) REFERENCES venta(cod_venta),
+    FOREIGN KEY (cod_producto) REFERENCES producto(cod_producto),
+    FOREIGN KEY (cod_sabor_masa_1) REFERENCES sabor_masa(cod_sabor_masa),
+    FOREIGN KEY (cod_sabor_masa_2) REFERENCES sabor_masa(cod_sabor_masa),
+    FOREIGN KEY (cod_glaseado_1) REFERENCES glaseado(cod_glaseado),
+    FOREIGN KEY (cod_glaseado_2) REFERENCES glaseado(cod_glaseado),
+    FOREIGN KEY (cod_topping_1) REFERENCES topping(cod_topping),
+    FOREIGN KEY (cod_topping_2) REFERENCES topping(cod_topping)
+);
+-- Primero eliminar las restricciones problemáticas
+ALTER TABLE combinacion_producto 
+DROP FOREIGN KEY combinacion_producto_ibfk_4,
+DROP FOREIGN KEY combinacion_producto_ibfk_5,
+DROP FOREIGN KEY combinacion_producto_ibfk_6,
+DROP FOREIGN KEY combinacion_producto_ibfk_7;
+
+-- Luego modificar las columnas para permitir NULLs
+ALTER TABLE combinacion_producto
+MODIFY COLUMN cod_sabor_masa_2 INT NULL,
+MODIFY COLUMN cod_glaseado_2 INT NULL,
+MODIFY COLUMN cod_topping_1 INT NULL,
+MODIFY COLUMN cod_topping_2 INT NULL;
+
+-- Finalmente volver a agregar las restricciones permitiendo NULLs
+ALTER TABLE combinacion_producto
+ADD CONSTRAINT fk_sabor_masa2 FOREIGN KEY (cod_sabor_masa_2) REFERENCES sabor_masa(cod_sabor_masa) ON DELETE SET NULL,
+ADD CONSTRAINT fk_glaseado2 FOREIGN KEY (cod_glaseado_2) REFERENCES glaseado(cod_glaseado) ON DELETE SET NULL,
+ADD CONSTRAINT fk_topping1 FOREIGN KEY (cod_topping_1) REFERENCES topping(cod_topping) ON DELETE SET NULL,
+ADD CONSTRAINT fk_topping2 FOREIGN KEY (cod_topping_2) REFERENCES topping(cod_topping) ON DELETE SET NULL;
+-- ------------------------------- JOIN
+SELECT 
+    e.cod_entrada,
+    e.nom_entrada,
+    e.cnt_entrada,
+    e.fecha_hora_entrada,
+    i.nomb_insumo,
+    c.nom_categoria,
+    p.nom_proveedor
+FROM 
+    entradas e
+JOIN 
+    insumo i ON e.cod_insumo = i.cod_insumo
+JOIN 
+    categoriainsumo c ON i.cod_categoria = c.cod_categoria
+JOIN 
+    proveedor p ON e.cod_proveedor = p.cod_proveedor;
+    
+/*Este JOIN evita la redundancia manteniendo acceso a la categoría a través de la relación
+ natural insumo→categoría, cumpliendo con la 3ª forma normal*/
+SELECT 
+    v.cod_venta,
+    CONCAT(u.nom_usua, ' ', u.apell_usua) AS cliente,
+    v.total,
+    p.estado_pago,
+    pr.estado AS estado_produccion,
+    env.estado AS estado_envio
+FROM 
+    venta v
+JOIN 
+    cliente cl ON v.cod_cliente = cl.cod_cliente
+JOIN 
+    usuario u ON cl.cod_usua = u.cod_usuario
+LEFT JOIN 
+    pago p ON v.cod_venta = p.cod_venta
+LEFT JOIN 
+    produccion pr ON v.cod_venta = pr.cod_venta
+LEFT JOIN 
+    envio env ON v.cod_venta = env.cod_venta; 
+ /*Muestra el flujo completo del pedido en una sola vista, usando LEFT JOIN para casos donde algún estado aún no existe.*/
+  -- Para producción:
+ SELECT 
+    v.cod_venta,
+    p.nomb_pro,
+    p.tamano,
+    CONCAT(sm1.nombre, IFNULL(CONCAT(' + ', sm2.nombre), '')) AS masa,
+    CONCAT(
+        g1.nombre, 
+        IF(g1.tipo = 'Colorido', CONCAT(' (', g1.color, ')'), ''),
+        IFNULL(CONCAT(' + ', g2.nombre, 
+        IF(g2.tipo = 'Colorido', CONCAT(' (', g2.color, ')'), '')), '')
+    ) AS glaseado,
+    CONCAT(IFNULL(t1.nombre, ''), IFNULL(CONCAT(' + ', t2.nombre), '')) AS toppings
+FROM 
+    combinacion_producto cp
+JOIN 
+    venta v ON cp.cod_venta = v.cod_venta
+JOIN 
+    producto p ON cp.cod_producto = p.cod_producto
+JOIN 
+    sabor_masa sm1 ON cp.cod_sabor_masa_1 = sm1.cod_sabor_masa
+LEFT JOIN 
+    sabor_masa sm2 ON cp.cod_sabor_masa_2 = sm2.cod_sabor_masa
+JOIN 
+    glaseado g1 ON cp.cod_glaseado_1 = g1.cod_glaseado
+LEFT JOIN 
+    glaseado g2 ON cp.cod_glaseado_2 = g2.cod_glaseado
+LEFT JOIN 
+    topping t1 ON cp.cod_topping_1 = t1.cod_topping
+LEFT JOIN 
+    topping t2 ON cp.cod_topping_2 = t2.cod_topping
+WHERE 
+    v.estado = 'PREPARACION';
+ /*//TRIGGERS Esenciales//*/
+ DELIMITER //
+CREATE TRIGGER after_entrada_insert
+AFTER INSERT ON entradas
+FOR EACH ROW
+BEGIN
+    UPDATE insumo 
+    SET cnt_insumo = cnt_insumo + NEW.cnt_entrada
+    WHERE cod_insumo = NEW.cod_insumo;
+END//
+DELIMITER ;
+/*Mantiene el stock actualizado automáticamente, evitando inconsistencias por actualizaciones manuales.*/
+DELIMITER //
+CREATE TRIGGER before_salida_insert
+BEFORE INSERT ON salida
+FOR EACH ROW
+BEGIN
+    DECLARE stock_actual INT;
+    
+    SELECT cnt_insumo INTO stock_actual
+    FROM insumo
+    WHERE cod_insumo = NEW.cod_insumo;
+    
+    IF stock_actual < NEW.cantidad THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Stock insuficiente para esta salida';
+    END IF;
+END//
+DELIMITER ;
+/*¿Por qué?
+Implementa control de inventario preventivo, evitando salidas que superen el stock disponible.*/
+DELIMITER //
+CREATE TRIGGER after_pago_update
+AFTER UPDATE ON pago
+FOR EACH ROW
+BEGIN
+    IF NEW.estado_pago = 'PAGADO' AND OLD.estado_pago != 'PAGADO' THEN
+        UPDATE venta
+        SET estado = 'PREPARACION'
+        WHERE cod_venta = NEW.cod_venta;
+    END IF;
+END//
+DELIMITER ;
+/*¿Por qué?
+Automatiza el flujo del proceso, cambiando el estado de la venta cuando se confirma el pago.*/
+DELIMITER //
+CREATE TRIGGER after_venta_preparacion
+AFTER UPDATE ON venta
+FOR EACH ROW
+BEGIN
+    IF NEW.estado = 'PREPARACION' AND OLD.estado != 'PREPARACION' THEN
+        INSERT INTO produccion (cod_venta, estado)
+        VALUES (NEW.cod_venta, 'PENDIENTE');
+    END IF;
+END//
+DELIMITER ;
+/*¿Por qué?
+Garantiza que toda venta pagada genere automáticamente un registro de producción.*/
+DELIMITER //
+CREATE TRIGGER before_venta_insert
+BEFORE INSERT ON venta
+FOR EACH ROW
+BEGIN
+    SET NEW.iva = NEW.subtotal * 0.19; -- Ejemplo para 19% de IVA
+    SET NEW.total = NEW.subtotal + NEW.iva;
+END//
+DELIMITER ;
+/*¿Por qué?
+Centraliza la lógica de cálculos financieros y evita errores manuales.*/
+CREATE TABLE auditoria_producto (
+    id_auditoria INT AUTO_INCREMENT PRIMARY KEY,
+    cod_producto INT,
+    precio_anterior DECIMAL(10,2),
+    precio_nuevo DECIMAL(10,2),
+    usuario VARCHAR(50),
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+DELIMITER //
+CREATE TRIGGER after_producto_update
+AFTER UPDATE ON producto
+FOR EACH ROW
+BEGIN
+    IF NEW.prec_pro != OLD.prec_pro THEN
+        INSERT INTO auditoria_producto (cod_producto, precio_anterior, precio_nuevo, usuario)
+        VALUES (NEW.cod_producto, OLD.prec_pro, NEW.prec_pro, CURRENT_USER());
+    END IF;
+END//
+DELIMITER ;
+/*¿Por qué?
+Proporciona trazabilidad para cambios sensibles como precios, importante para cumplimiento y análisis.*/
+DELIMITER //
+CREATE TRIGGER validar_combinacion_producto
+BEFORE INSERT ON combinacion_producto
+FOR EACH ROW
+BEGIN
+    DECLARE v_tamano CHAR(1);
+    
+    -- Obtener el tamaño del producto
+    SELECT p.tamano INTO v_tamano
+    FROM producto p
+    WHERE p.cod_producto = NEW.cod_producto;
+    
+    -- Validar reglas según tamaño
+    IF v_tamano IN ('XS', 'S') AND 
+       (NEW.cod_sabor_masa_2 IS NOT NULL OR 
+        NEW.cod_glaseado_2 IS NOT NULL OR 
+        NEW.cod_topping_2 IS NOT NULL) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Solo tallas M y L permiten combinaciones múltiples';
+    END IF;
+    
+    IF v_tamano IN ('M', 'L') AND
+       NEW.cod_sabor_masa_2 IS NULL AND
+       NEW.cod_glaseado_2 IS NULL AND
+       NEW.cod_topping_2 IS NULL THEN
+        SIGNAL SQLSTATE '45001'
+        SET MESSAGE_TEXT = 'Tallas M y L deben tener al menos una combinación múltiple';
+    END IF;
+END//
+DELIMITER ;
+
+DELIMITER //
+CREATE TRIGGER after_venta_completada
+AFTER UPDATE ON venta
+FOR EACH ROW
+BEGIN
+    IF NEW.estado = 'ENTREGADO' AND OLD.estado != 'ENTREGADO' THEN
+        UPDATE cliente 
+        SET historial_compras = historial_compras + 1
+        WHERE cod_cliente = NEW.cod_cliente;
+    END IF;
+END//
+DELIMITER ;
+ -- Por qué: Automatiza el conteo de compras completadas por cliente para fidelización.
+ DELIMITER //
+CREATE TRIGGER after_envio_asignado
+AFTER UPDATE ON envio
+FOR EACH ROW
+BEGIN
+    IF NEW.estado = 'ASIGNADO' AND OLD.estado != 'ASIGNADO' AND NEW.cod_domi IS NOT NULL THEN
+        UPDATE domiciliario
+        SET disponibilidad = FALSE
+        WHERE cod_domi = NEW.cod_domi;
+    END IF;
+    
+    IF NEW.estado = 'ENTREGADO' AND OLD.estado != 'ENTREGADO' AND NEW.cod_domi IS NOT NULL THEN
+        UPDATE domiciliario
+        SET disponibilidad = TRUE
+        WHERE cod_domi = NEW.cod_domi;
+    END IF;
+END//
+DELIMITER ; 
+ -- Por qué: Mantiene actualizado el estado de disponibilidad de los domiciliarios.
+ 
+ DELIMITER //
+CREATE TRIGGER before_envio_update
+BEFORE UPDATE ON envio
+FOR EACH ROW
+BEGIN
+    -- Validar que las fechas sean cronológicas
+    IF NEW.fecha_asignacion IS NOT NULL AND NEW.fecha_salida IS NOT NULL AND 
+       NEW.fecha_asignacion > NEW.fecha_salida THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'La fecha de salida no puede ser anterior a la de asignación';
+    END IF;
+    
+    IF NEW.fecha_salida IS NOT NULL AND NEW.fecha_entrega IS NOT NULL AND 
+       NEW.fecha_salida > NEW.fecha_entrega THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'La fecha de entrega no puede ser anterior a la de salida';
+    END IF;
+END//
+DELIMITER ;
+ -- Por qué: Garantiza la coherencia temporal en el proceso de envío.
+
+/*insercion de datos*/
+INSERT INTO usuario (nom_usua, apell_usua, tele_usua, email_usua, passw_usua, rol) VALUES
+('Juan', 'Pérez', '3101234567', 'juan@kaef22.com', 'juan123', 'ADMIN'),
+('María', 'Gómez', '3112345678', 'maria@kaef22.com', 'maria456', 'ADMIN'),
+('Carlos', 'López', '3123456789', 'carlos@kaef22.com', 'carlos789', 'DOMI'),
+('Ana', 'Rodríguez', '3134567890', 'ana@kaef22.com', 'ana012', 'DOMI'),
+('Pedro', 'Martínez', '3145678901', 'pedro@cliente.com', 'pedro345', 'CLIENTE'),
+('Laura', 'García', '3156789012', 'laura@cliente.com', 'laura678', 'CLIENTE'),
+('Sofía', 'Hernández', '3167890123', 'sofia@cliente.com', 'sofia901', 'CLIENTE'),
+('Diego', 'Díaz', '3178901234', 'diego@cliente.com', 'diego234', 'CLIENTE');
+
+/*ADMIN*/
+INSERT INTO administrador (cod_usua, estado_admin) VALUES
+(1, 'ACTIVO'),
+(2, 'ACTIVO');
+/*CLIENTE*/
+INSERT INTO cliente (cod_usua, direc_cliente, historial_compras) VALUES
+(5, 'Calle 123 #45-67', 3),
+(6, 'Avenida 8 #23-45', 5),
+(7, 'Carrera 15 #34-56', 2),
+(8, 'Diagonal 12B #78-90', 1);
+/*DOMICILIARIO*/
+INSERT INTO domiciliario (cod_usua, disponibilidad) VALUES
+(3, TRUE),
+(4, TRUE);
+
+/*inventario*/
+
+INSERT INTO categoriainsumo (nom_categoria, descripcion) VALUES
+('Harinas', 'Diferentes tipos de harina para masa'),
+('Endulzantes', 'Azúcares y sustitutos'),
+('Sabores', 'Esencias y sabores artificiales'),
+('Decoraciones', 'Toppings y decoraciones'),
+('Grasas', 'Aceites y mantecas'),
+("Lacteos","Leche entera y deslactosada");
+
+INSERT INTO insumo (cod_categoria, nomb_insumo, cnt_insumo, unidad_medida) VALUES
+(1, 'Harina de Trigo', 50, 'kg'),
+(1, 'Harina Integral', 20, 'kg'),
+(2, 'Azúcar Blanca', 30, 'kg'),
+(2, 'Azúcar Glass', 15, 'kg'),
+(3, 'Esencia de Vainilla', 10, 'lt'),
+(3, 'Esencia de Chocolate', 8, 'lt'),
+(4, 'Sprinkles Colores', 12, 'kg'),
+(4, 'Chispas Chocolate', 10, 'kg'),
+(5, 'Aceite Vegetal', 25, 'lt'),
+(5, 'Mantequilla sin Sal', 15, 'kg'),
+(6, "Leche Entera",3,"lt"),
+(6, "Leche Deslactosada",3,"lt");
+
+INSERT INTO proveedor (nom_proveedor, telefono_proveedor, direccion_proveedor, email_proveedor) VALUES
+('Harinas Premium', '6011111111', 'Calle Molino 123', 'contacto@harinaspremium.com'),
+('Dulces y Más', '6022222222', 'Av Azucar 456', 'ventas@dulcesymas.com'),
+('Sabores Express', '6033333333', 'Carrera Sabor 789', 'pedidos@saboresexpress.com'),
+('Decoraciones Donut', '6044444444', 'Diagonal Topping 101', 'info@decoracionesdonut.com');
+
+/*VENTA*/
+INSERT INTO venta (cod_cliente, subtotal, iva, total, estado, direccion_entrega) VALUES
+-- Venta 1: XS simple (pagada, producida, entregada)
+(1, 8000, 1520, 9520, 'ENTREGADO', 'Calle Dulce 123'),
+
+-- Venta 2: S simple (pagada, en producción)
+(2, 15000, 2850, 17850, 'PREPARACION', 'Avenida Azucar 456'),
+
+-- Venta 3: M múltiple (pagada, en producción)
+(3, 28000, 5320, 33320, 'PREPARACION', 'Carrera Chocolate 789'),
+
+-- Venta 4: L múltiple (pagada, pendiente de producción)
+(4, 40000, 7600, 47600, 'PREPARACION', 'Diagonal Glaseado 101'),
+
+-- Venta 5: XS simple (pagada, producida, entregada)
+(1, 8000, 1520, 9520, 'ENTREGADO', 'Calle Principal 456');
+-- Insertamos las combinaciones para cada venta
+-- Insertar solo combinaciones simples (sin segundos sabores/glaseados)
+-- Insertar solo combinaciones simples (sin segundos sabores/glaseados)
+INSERT INTO combinacion_producto 
+(cod_venta, cod_producto, cod_sabor_masa_1, cod_glaseado_1)
+VALUES
+-- Venta 1: 6 donas chocolate/oscuro/coco
+(1, 1, 1, 1),
+
+-- Venta 2: 12 donas vainilla/blanco
+(2, 2, 2, 2);
+
+-- Insertar combinaciones complejas por separado
+INSERT INTO combinacion_producto 
+(cod_venta, cod_producto, cod_sabor_masa_1, cod_sabor_masa_2, cod_glaseado_1, cod_glaseado_2, cod_topping_1)
+VALUES
+-- Venta 3: 24 donas (chocolate+vainilla)/(oscuro+rosado)/sprinkles
+(3, 3, 1, 2, 1, 3, 1),
+
+-- Venta 4: 36 donas (red velvet+vainilla)/(morado+verde)/oreo
+(4, 4, 3, 2, 4, 7, 5);
+INSERT INTO combinacion_producto 
+(cod_venta, cod_producto, cod_sabor_masa_1, cod_glaseado_1)
+VALUE
+-- Venta 5: 6 donas red velvet/naranja
+(5, 1, 3, 5);
+
+ -- Pagos --
+ INSERT INTO pago (cod_venta, metodo_pago, monto_total, estado_pago) VALUES
+(1, 'NEQUI', 9520, 'PAGADO'),
+(2, 'DAVIPLATA', 17850, 'PAGADO'),
+(3, 'NEQUI', 33320, 'PAGADO'),
+(4, 'DAVIPLATA', 47600, 'PAGADO'),
+(5, 'NEQUI', 9520, 'PAGADO');
+/*PORDUCCION*/
+INSERT INTO produccion (cod_venta, fecha_inicio, fecha_fin, estado) VALUES
+-- Venta 1: Producida y finalizada
+(1, '2023-11-01 09:00:00', '2023-11-01 09:25:00', 'FINALIZADO'),
+
+-- Venta 2: En proceso
+(2, '2023-11-01 10:00:00', NULL, 'EN_PROCESO'),
+-- Venta 5: Producida y finalizada
+(5, '2023-11-01 14:00:00', '2023-11-01 14:20:00', 'FINALIZADO');
+INSERT INTO produccion (cod_venta, fecha_inicio, estado) VALUES
+(3, NOW(), 'EN_PROCESO');
+INSERT INTO produccion (cod_venta, fecha_inicio, estado) VALUES
+(4, NOW(), 'PENDIENTE');
+
+ -- Salidas --(ejemplo para venta 1)
+INSERT INTO salida (cod_produccion, cod_insumo, cantidad) VALUES
+(1, 1, 0.5),  -- Harina
+(1, 3, 0.3),  -- Azúcar
+(1, 6, 0.1),  -- Esencia chocolate
+(1, 8, 0.05); -- Chispas chocolate
+-- Salidas para Venta 2 (Producción EN_PROCESO)
+INSERT INTO salida (cod_produccion, cod_insumo, cantidad) VALUES
+(2, 1, 0.6),   -- Harina de trigo
+(2, 3, 0.4),   -- Azúcar blanca
+(2, 5, 0.15),  -- Esencia de vainilla
+(2, 10, 0.1);  -- Mantequilla
+-- Salidas para Venta 3
+INSERT INTO salida (cod_produccion, cod_insumo, cantidad) VALUES
+(4, 1, 1.2),   -- Harina de trigo
+(4, 2, 0.3),   -- Harina integral
+(4, 3, 0.6),   -- Azúcar blanca
+(4, 6, 0.2),   -- Esencia de chocolate
+(4, 7, 0.15),  -- Sprinkles
+(4, 10, 0.15); -- Mantequilla
+/*ENVIOS*/
+INSERT INTO envio (cod_venta, cod_domi, fecha_asignacion, fecha_salida, fecha_entrega, estado, tarifa_envio) VALUES
+-- Venta 1 entregada por domiciliario 1
+(1, 1, '2023-11-01 09:30:00', '2023-11-01 09:45:00', '2023-11-01 10:15:00', 'ENTREGADO', 3000),
+
+-- Venta 5 entregada por domiciliario 2
+(5, 2, '2023-11-01 14:25:00', '2023-11-01 14:40:00', '2023-11-01 15:05:00', 'ENTREGADO', 3000);
+
+-- Insertar solo los tamaños como productos base
+INSERT INTO producto (nomb_pro, tamano, capacidad, prec_pro, activo) VALUES
+('Bolsa Mini Donas xs', 'XS', 6, 8000, TRUE),
+('Bolsa Mini Donas s', 'S', 12, 15000, TRUE),
+('Bolsa Mini Donas m', 'M', 24, 28000, TRUE),
+('Bolsa Mini Donas l', 'L', 36, 40000, TRUE);
+
+/* insercion de entradas*/
+-- Insertar entradas de insumos según tus proveedores existentes
+INSERT INTO entradas (cod_insumo, cod_proveedor, nom_entrada, cnt_entrada, precio_entrada, fecha_caducidad, lote) VALUES
+-- Harinas del proveedor 1
+(1, 1, 'Compra Harina Trigo', 20, 150000, '2024-06-30', 'LOT-HT-2023-1'),
+(2, 1, 'Compra Harina Integral', 10, 180000, '2024-07-15', 'LOT-HI-2023-1'),
+
+-- Azúcares del proveedor 2
+(3, 2, 'Compra Azúcar Blanca', 15, 120000, '2025-01-01', 'LOT-AB-2023-1'),
+(4, 2, 'Compra Azúcar Glass', 8, 150000, '2025-01-01', 'LOT-AG-2023-1'),
+
+-- Sabores del proveedor 3
+(5, 3, 'Compra Esencia Vainilla', 5, 80000, '2024-09-30', 'LOT-EV-2023-1'),
+(6, 3, 'Compra Esencia Chocolate', 4, 85000, '2024-10-15', 'LOT-EC-2023-1'),
+
+-- Decoraciones del proveedor 4
+(7, 4, 'Compra Sprinkles', 6, 95000, '2024-12-31', 'LOT-SP-2023-1'),
+(8, 4, 'Compra Chispas Chocolate', 5, 110000, '2024-12-31', 'LOT-CC-2023-1'),
+
+-- Grasas del proveedor 1
+(9, 1, 'Compra Aceite Vegetal', 10, 130000, '2024-08-31', 'LOT-AV-2023-1'),
+(10, 1, 'Compra Mantequilla', 8, 160000, '2024-05-31', 'LOT-MT-2023-1'),
+
+-- Lácteos del proveedor 2
+(11, 2, 'Compra Leche Entera', 10, 90000, '2023-12-15', 'LOT-LE-2023-1'),
+(12, 2, 'Compra Leche Deslactosada', 10, 95000, '2023-12-20', 'LOT-LD-2023-1');
+
+/* insercion de sabores de masa */
+INSERT INTO sabor_masa (nombre, descripcion) VALUES
+('Chocolate', 'Masa con cocoa en polvo'),
+('Vainilla', 'Masa con esencia de vainilla'),
+('Red Velvet', 'Masa de terciopelo rojo');
+
+INSERT INTO glaseado (nombre, tipo, color, descripcion) VALUES
+('Chocolate Oscuro', 'Oscuro', NULL, 'Glaseado clásico de chocolate oscuro'),
+('Chocolate Blanco', 'Blanco', NULL, 'Glaseado cremoso de chocolate blanco'),
+('Chocolate Rosado', 'Colorido', 'Rosado', 'Chocolate sabor fresa color rosado'),
+('Chocolate Morado', 'Colorido', 'Morado', 'Chocolate sabor uva color morado'),
+('Chocolate Naranja', 'Colorido', 'Naranja', 'Chocolate sabor naranja vibrante'),
+('Chocolate Azul', 'Colorido', 'Azul', 'Chocolate sabor blueberry'),
+('Chocolate Verde', 'Colorido', 'Verde', 'Chocolate sabor menta');
+INSERT INTO topping (nombre, descripcion) VALUES
+('Sprinkles', 'Granas de colores'),
+('Chispas Chocolate', 'Pequeñas chispas de chocolate'),
+('Coco Rallado', 'Coco deshidratado rallado'),
+('Chispas de Colores', 'Chispas de varios colores'),
+('Oreo', 'Pedazos de Oreo triturado');
+
+-- Verificar que todas las combinaciones se insertaron correctamente
+SELECT 
+    cp.cod_venta,
+    p.nomb_pro AS producto,
+    sm1.nombre AS sabor_principal,
+    IFNULL(sm2.nombre, 'N/A') AS sabor_secundario,
+    g1.nombre AS glaseado_principal,
+    IFNULL(g2.nombre, 'N/A') AS glaseado_secundario,
+    IFNULL(t1.nombre, 'N/A') AS topping_1,
+    IFNULL(t2.nombre, 'N/A') AS topping_2
+FROM 
+    combinacion_producto cp
+JOIN producto p ON cp.cod_producto = p.cod_producto
+JOIN sabor_masa sm1 ON cp.cod_sabor_masa_1 = sm1.cod_sabor_masa
+LEFT JOIN sabor_masa sm2 ON cp.cod_sabor_masa_2 = sm2.cod_sabor_masa
+JOIN glaseado g1 ON cp.cod_glaseado_1 = g1.cod_glaseado
+LEFT JOIN glaseado g2 ON cp.cod_glaseado_2 = g2.cod_glaseado
+LEFT JOIN topping t1 ON cp.cod_topping_1 = t1.cod_topping
+LEFT JOIN topping t2 ON cp.cod_topping_2 = t2.cod_topping
+ORDER BY cp.cod_venta;
+
+SELECT 
+    e.cod_envio,
+    v.cod_venta,
+    CONCAT(cli.nom_usua, ' ', cli.apell_usua) AS cliente,
+    p.nomb_pro AS producto,
+    e.estado,
+    e.fecha_asignacion,
+    e.fecha_salida,
+    e.fecha_entrega,
+    IFNULL(CONCAT(dom.nom_usua, ' ', dom.apell_usua), 'Sin asignar') AS domiciliario,
+    e.tarifa_envio
+FROM 
+    envio e
+INNER JOIN venta v ON e.cod_venta = v.cod_venta
+INNER JOIN (
+    SELECT cp.cod_venta, p.nomb_pro 
+    FROM combinacion_producto cp
+    JOIN producto p ON cp.cod_producto = p.cod_producto
+    GROUP BY cp.cod_venta  -- Para evitar duplicados si hay múltiples combinaciones
+) p ON v.cod_venta = p.cod_venta
+INNER JOIN cliente c ON v.cod_cliente = c.cod_cliente
+INNER JOIN usuario cli ON c.cod_usua = cli.cod_usuario
+LEFT JOIN (
+    domiciliario d
+    JOIN usuario dom ON d.cod_usua = dom.cod_usuario
+) ON e.cod_domi = d.cod_domi
+WHERE e.estado IN ('EN_CAMINO', 'ENTREGADO')
+ORDER BY 
+    CASE WHEN e.estado = 'EN_CAMINO' THEN 0 ELSE 1 END,  -- Envíos en camino primero
+    e.fecha_asignacion DESC;
