@@ -489,6 +489,29 @@ BEGIN
     END IF;
 END//
 DELIMITER ;
+
+DELIMITER //
+CREATE TRIGGER after_produccion_finalizada
+AFTER UPDATE ON produccion
+FOR EACH ROW
+BEGIN
+    IF NEW.estado = 'FINALIZADO' AND OLD.estado != 'FINALIZADO' THEN
+        UPDATE venta SET estado = 'EN_CAMINO' WHERE cod_venta = NEW.cod_venta;
+        -- Aquí podrías llamar a un procedimiento para asignar domiciliario automático
+    END IF;
+END//
+DELIMITER ;
+DELIMITER //
+CREATE TRIGGER after_envio_entregado
+AFTER UPDATE ON envio
+FOR EACH ROW
+BEGIN
+    IF NEW.estado = 'ENTREGADO' AND OLD.estado != 'ENTREGADO' THEN
+        UPDATE venta SET estado = 'ENTREGADO' WHERE cod_venta = NEW.cod_venta;
+        UPDATE domiciliario SET disponibilidad = TRUE WHERE cod_domi = NEW.cod_domi;
+    END IF;
+END//
+DELIMITER ;
  -- Por qué: Garantiza la coherencia temporal en el proceso de envío.
 
 /*insercion de datos*/
